@@ -2,8 +2,10 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub')
-        IMAGE_NAME = "mohsenkazemifar392/flask-app1"
+        scannerHome = tool 'sonar4.7'
+        REGISTRY_URL = "192.168.2.249:5000"
+        REGISTRY_CREDENTIALS = credentials('docker-registry')
+        IMAGE_NAME = "${REGISTRY_URL}/flask-app"
         IMAGE_TAG = "latest"
     }
 
@@ -45,7 +47,7 @@ pipeline {
                     withSonarQubeEnv('sonar') {
                         sh '''
                             export PATH=$PATH:/opt/sonar-scanner/bin
-                            sonar-scanner \
+                            ${scannerHome}/bin/sonar-scanner \
                             -Dsonar.projectKey=flask-app \
                             -Dsonar.projectName=flask-app \
                             -Dsonar.projectVersion=1.0 \
@@ -75,10 +77,10 @@ pipeline {
             }
         }
 
-        stage('Push to Docker Hub') {
+        stage('Push to Private Registry') {
             steps {
                 script {
-                    docker.withRegistry('https://registry.hub.docker.com', 'dockerhub') {
+                    docker.withRegistry("https://${REGISTRY_URL}", REGISTRY_CREDENTIALS) {
                         docker.image("${IMAGE_NAME}:${IMAGE_TAG}").push()
                     }
                 }
