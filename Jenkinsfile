@@ -6,6 +6,7 @@ pipeline {
         REGISTRY_CREDENTIALS = credentials('docker-registry')
         IMAGE_NAME = "${REGISTRY_URL}/flask-app"
         IMAGE_TAG = "latest"
+        FULL_IMAGE_NAME = "${IMAGE_NAME}:${IMAGE_TAG}"
     }
 
     stages {
@@ -47,11 +48,11 @@ pipeline {
                         sh '''
                             export PATH=$PATH:/opt/sonar-scanner/bin
                             sonar-scanner \
-                            -Dsonar.projectKey=flask-app \
-                            -Dsonar.projectName=flask-app \
-                            -Dsonar.projectVersion=1.0 \
-                            -Dsonar.sources=. \
-                            -Dsonar.python.coverage.reportPaths=coverage.xml
+                                -Dsonar.projectKey=flask-app \
+                                -Dsonar.projectName=flask-app \
+                                -Dsonar.projectVersion=1.0 \
+                                -Dsonar.sources=. \
+                                -Dsonar.python.coverage.reportPaths=coverage.xml
                         '''
                     }
                 }
@@ -70,7 +71,7 @@ pipeline {
             steps {
                 dir('flask-app') {
                     script {
-                        docker.build("${IMAGE_NAME}:${IMAGE_TAG}", '.')
+                        docker.build("${FULL_IMAGE_NAME}", '.')
                     }
                 }
             }
@@ -79,8 +80,8 @@ pipeline {
         stage('Push to Private Registry') {
             steps {
                 script {
-                    docker.withRegistry("https://${REGISTRY_URL}", REGISTRY_CREDENTIALS) {
-                        docker.image("${IMAGE_NAME}:${IMAGE_TAG}").push()
+                    docker.withRegistry("http://${REGISTRY_URL}", REGISTRY_CREDENTIALS) {
+                        docker.image("${FULL_IMAGE_NAME}").push()
                     }
                 }
             }
