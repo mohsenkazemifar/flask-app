@@ -7,11 +7,6 @@ pipeline {
         IMAGE_TAG = "latest"
     }
 
-    tools {
-        python 'Python 3'                    // باید از قبل در Jenkins نصب و تنظیم شده باشد
-        sonarQubeScanner 'SonarScanner'      // نام ابزاری که در Global Tool Configuration تعریف شده
-    }
-
     stages {
         stage('Fetch code') {
             steps {
