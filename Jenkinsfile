@@ -80,7 +80,7 @@ pipeline {
         stage('Push to Private Registry') {
             steps {
                 script {
-                    docker.withRegistry("http://${REGISTRY_URL}", REGISTRY_CREDENTIALS) {
+                    docker.withRegistry("http://${REGISTRY_URL}", docker-registry) {
                         docker.image("${FULL_IMAGE_NAME}").push()
                     }
                 }
