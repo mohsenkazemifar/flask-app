@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        scannerHome = tool 'sonar4.7'
         REGISTRY_URL = "192.168.2.249:5000"
         REGISTRY_CREDENTIALS = credentials('docker-registry')
         IMAGE_NAME = "${REGISTRY_URL}/flask-app"
@@ -47,7 +46,7 @@ pipeline {
                     withSonarQubeEnv('sonar') {
                         sh '''
                             export PATH=$PATH:/opt/sonar-scanner/bin
-                            ${scannerHome}/bin/sonar-scanner \
+                            sonar-scanner \
                             -Dsonar.projectKey=flask-app \
                             -Dsonar.projectName=flask-app \
                             -Dsonar.projectVersion=1.0 \
