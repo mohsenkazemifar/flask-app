@@ -6,6 +6,7 @@ pipeline {
         REGISTRY_CREDENTIALS = credentials('docker-registry')
         IMAGE_NAME = "${REGISTRY_URL}/python-flask-app"
         IMAGE_TAG = "latest"
+        VENV_PATH = "venv"
     }
 
     stages {
@@ -15,10 +16,16 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Setup Python Virtualenv and Install Dependencies') {
             steps {
                 dir('ci-cd-flask-app/app') {
-                    sh 'pip install --user -r requirements.txt'
+                    // ایجاد virtualenv
+                    sh '''
+                        python3 -m venv ${VENV_PATH}
+                        . ${VENV_PATH}/bin/activate
+                        pip install --upgrade pip
+                        pip install -r requirements.txt
+                    '''
                 }
             }
         }
@@ -26,8 +33,11 @@ pipeline {
         stage('Run Tests') {
             steps {
                 dir('ci-cd-flask-app/app') {
-                    // فرض کردم تست با pytest اجرا میشه
-                    sh 'pytest'
+                    // اجرای تست‌ها در virtualenv
+                    sh '''
+                        . ${VENV_PATH}/bin/activate
+                        pytest
+                    '''
                 }
             }
         }
@@ -38,9 +48,9 @@ pipeline {
                     withSonarQubeEnv('sonar') {
                         sh '''
                         sonar-scanner \
-                        -Dsonar.projectKey=flask-app \
-                        -Dsonar.sources=. \
-                        -Dsonar.python.coverage.reportPaths=coverage.xml
+                            -Dsonar.projectKey=flask-app \
+                            -Dsonar.sources=. \
+                            -Dsonar.python.coverage.reportPaths=coverage.xml
                         '''
                     }
                 }
@@ -58,6 +68,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
+                    // داکر ایمیج رو از پوشه ci-cd-flask-app میسازیم چون Dockerfile اونجا هست
                     docker.build("${IMAGE_NAME}:${IMAGE_TAG}", 'ci-cd-flask-app')
                 }
             }
@@ -75,10 +86,16 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                // فرض کردم kubectl و کانفیگ لازم روی ماشین jenkins ست شده است
                 sh 'kubectl apply -f ci-cd-flask-app/k8s/deployment.yaml'
                 sh 'kubectl apply -f ci-cd-flask-app/k8s/service.yaml'
             }
+        }
+    }
+
+    post {
+        always {
+            echo 'Cleaning up workspace...'
+            cleanWs()
         }
     }
 }
