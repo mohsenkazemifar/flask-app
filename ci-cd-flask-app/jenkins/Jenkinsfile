@@ -2,14 +2,14 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE_ENV = 'sonar4.7'  // اسم SonarQube در Jenkins
         REGISTRY_URL = "192.168.2.249:5000"
-        IMAGE_NAME = "${REGISTRY_URL}/flask-ci-cd"
+        REGISTRY_CREDENTIALS = credentials('docker-registry')
+        IMAGE_NAME = "${REGISTRY_URL}/python-flask-app"
         IMAGE_TAG = "latest"
     }
 
     stages {
-        stage('Checkout') {
+        stage('Fetch Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/mohsenkazemifar/flask-app.git'
             }
@@ -17,59 +17,68 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                // نصب وابستگی‌ها از ریشه پروژه با مسیر کامل
-                sh 'pip install -r app/requirements.txt'
+                dir('ci-cd-flask-app/app') {
+                    sh 'pip install --user -r requirements.txt'
+                }
             }
         }
 
-        // اگر تست داری این مرحله رو اضافه کن:
-        // stage('Test') {
-        //     steps {
-        //         sh 'pytest tests/'
-        //     }
-        // }
-
-        stage('Code Analysis') {
+        stage('Run Tests') {
             steps {
-                withSonarQubeEnv("${env.SONARQUBE_ENV}") {
-                    sh '''
-                    sonar-scanner \
-                    -Dsonar.projectKey=flask-ci-cd \
-                    -Dsonar.projectName=flask-ci-cd \
-                    -Dsonar.projectVersion=1.0 \
-                    -Dsonar.sources=app \
-                    -Dsonar.language=py \
-                    -Dsonar.sourceEncoding=UTF-8
-                    '''
+                dir('ci-cd-flask-app/app') {
+                    // فرض کردم تست با pytest اجرا میشه
+                    sh 'pytest'
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                dir('ci-cd-flask-app/app') {
+                    withSonarQubeEnv('sonar') {
+                        sh '''
+                        sonar-scanner \
+                        -Dsonar.projectKey=flask-app \
+                        -Dsonar.sources=. \
+                        -Dsonar.python.coverage.reportPaths=coverage.xml
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                script {
+                    docker.build("${IMAGE_NAME}:${IMAGE_TAG}", 'ci-cd-flask-app')
+                }
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Push to Private Registry') {
             steps {
-                sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
+                script {
+                    docker.withRegistry("https://${REGISTRY_URL}", 'docker-registry') {
+                        docker.image("${IMAGE_NAME}:${IMAGE_TAG}").push()
+                    }
+                }
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh '''
-                kubectl apply -f k8s/deployment.yaml
-                kubectl apply -f k8s/service.yaml
-                '''
+                // فرض کردم kubectl و کانفیگ لازم روی ماشین jenkins ست شده است
+                sh 'kubectl apply -f ci-cd-flask-app/k8s/deployment.yaml'
+                sh 'kubectl apply -f ci-cd-flask-app/k8s/service.yaml'
             }
-        }
-    }
-
-    post {
-        always {
-            echo "Pipeline finished."
         }
     }
 }
