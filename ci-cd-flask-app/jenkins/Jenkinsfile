@@ -1,0 +1,39 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Clone') {
+            steps {
+                git 'https://github.com/mohsenkazemifar/flask-app.git'
+            }
+        }
+
+        stage('Code Analysis') {
+            steps {
+                withSonarQubeEnv('MySonarQube') {
+                    sh 'sonar-scanner'
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t flask-ci-cd .'
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                sh 'docker tag flask-ci-cd localhost:5000/flask-ci-cd'
+                sh 'docker push localhost:5000/flask-ci-cd'
+            }
+        }
+
+        stage('Deploy to K8s') {
+            steps {
+                sh 'kubectl apply -f k8s/deployment.yaml'
+                sh 'kubectl apply -f k8s/service.yaml'
+            }
+        }
+    }
+}
