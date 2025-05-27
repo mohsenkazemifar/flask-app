@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE_ENV = 'sonar'  // اسم SonarQube در Jenkins
+        SONARQUBE_ENV = 'sonar4.7'  // اسم SonarQube در Jenkins
         REGISTRY_URL = "192.168.2.249:5000"
         IMAGE_NAME = "${REGISTRY_URL}/flask-ci-cd"
         IMAGE_TAG = "latest"
