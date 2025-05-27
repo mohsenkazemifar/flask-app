@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        SONARQUBE_ENV = 'sonar' // اسم سرویسی که در Jenkins > Global Tool Configuration برای SonarQube تعریف کردی
+    }
+
     stages {
         stage('Clone') {
             steps {
@@ -10,8 +14,14 @@ pipeline {
 
         stage('Code Analysis') {
             steps {
-                withSonarQubeEnv('sonar') {
-                    sh 'sonar-scanner'
+                withSonarQubeEnv("${env.SONARQUBE_ENV}") {
+                    sh '''${scannerHome}/bin/sonar-scanner \
+                        -Dsonar.projectKey=flask-ci-cd \
+                        -Dsonar.projectName=flask-ci-cd \
+                        -Dsonar.projectVersion=1.0 \
+                        -Dsonar.sources=. \
+                        -Dsonar.language=py \
+                        -Dsonar.sourceEncoding=UTF-8'''
                 }
             }
         }
@@ -24,15 +34,19 @@ pipeline {
 
         stage('Push Docker Image') {
             steps {
-                sh 'docker tag flask-ci-cd localhost:5000/flask-ci-cd'
-                sh 'docker push localhost:5000/flask-ci-cd'
+                sh '''
+                    docker tag flask-ci-cd localhost:5000/flask-ci-cd
+                    docker push localhost:5000/flask-ci-cd
+                '''
             }
         }
 
         stage('Deploy to K8s') {
             steps {
-                sh 'kubectl apply -f k8s/deployment.yaml'
-                sh 'kubectl apply -f k8s/service.yaml'
+                sh '''
+                    kubectl apply -f k8s/deployment.yaml
+                    kubectl apply -f k8s/service.yaml
+                '''
             }
         }
     }
