@@ -3,10 +3,9 @@ pipeline {
 
     environment {
         REGISTRY_URL = "192.168.2.249:5000"
-        REGISTRY_CREDENTIALS = credentials('docker-registry')
-        IMAGE_NAME = "${REGISTRY_URL}/flask-app"
+        IMAGE_NAME = "flask-app"
         IMAGE_TAG = "latest"
-        FULL_IMAGE_NAME = "${IMAGE_NAME}:${IMAGE_TAG}"
+        FULL_IMAGE_NAME = "${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}"
     }
 
     stages {
@@ -79,9 +78,12 @@ pipeline {
 
         stage('Push to Private Registry') {
             steps {
-                script {
-                    docker.withRegistry("http://${REGISTRY_URL}", REGISTRY_CREDENTIALS) {
-                        docker.image("${FULL_IMAGE_NAME}").push()
+                withCredentials([usernamePassword(credentialsId: 'docker-registry', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    script {
+                        sh """
+                            docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD ${REGISTRY_URL}
+                            docker push ${FULL_IMAGE_NAME}
+                        """
                     }
                 }
             }
