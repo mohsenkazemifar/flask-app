@@ -44,6 +44,7 @@ pipeline {
                 dir('flask-app') {
                     withSonarQubeEnv('sonar') {
                         sh '''
+                            export PATH=/opt/sonar-scanner-4.8.0.2856-linux/bin:$PATH
                             sonar-scanner \
                             -Dsonar.projectKey=flask-app \
                             -Dsonar.projectName=flask-app \
