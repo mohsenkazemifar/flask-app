@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE_ENV = 'sonar'  // اسم SonarQube که در Jenkins تعریف کردی
-        REGISTRY_URL = "localhost:5000"
+        SONARQUBE_ENV = 'sonar'  // اسم SonarQube در Jenkins
+        REGISTRY_URL = "192.168.2.249:5000"
         IMAGE_NAME = "${REGISTRY_URL}/flask-ci-cd"
         IMAGE_TAG = "latest"
     }
@@ -17,13 +17,12 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                dir('app') {
-                    sh 'pip install -r requirements.txt'
-                }
+                // نصب وابستگی‌ها از ریشه پروژه با مسیر کامل
+                sh 'pip install -r app/requirements.txt'
             }
         }
 
-        // اگر بخوای تست اضافه کنی این مرحله رو اینجا اضافه کن
+        // اگر تست داری این مرحله رو اضافه کن:
         // stage('Test') {
         //     steps {
         //         sh 'pytest tests/'
@@ -48,15 +47,13 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .'
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
             }
         }
 
         stage('Push Docker Image') {
             steps {
-                sh '''
-                docker push ${IMAGE_NAME}:${IMAGE_TAG}
-                '''
+                sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
             }
         }
 
