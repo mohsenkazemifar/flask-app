@@ -2,52 +2,77 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE_ENV = 'sonar' // اسم سرویسی که در Jenkins > Global Tool Configuration برای SonarQube تعریف کردی
+        SONARQUBE_ENV = 'sonar'  // اسم SonarQube که در Jenkins تعریف کردی
+        REGISTRY_URL = "localhost:5000"
+        IMAGE_NAME = "${REGISTRY_URL}/flask-ci-cd"
+        IMAGE_TAG = "latest"
     }
 
     stages {
-        stage('Clone') {
+        stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/mohsenkazemifar/flask-app.git'
             }
         }
 
+        stage('Install Dependencies') {
+            steps {
+                dir('app') {
+                    sh 'pip install -r requirements.txt'
+                }
+            }
+        }
+
+        // اگر بخوای تست اضافه کنی این مرحله رو اینجا اضافه کن
+        // stage('Test') {
+        //     steps {
+        //         sh 'pytest tests/'
+        //     }
+        // }
+
         stage('Code Analysis') {
             steps {
                 withSonarQubeEnv("${env.SONARQUBE_ENV}") {
-                    sh '''${scannerHome}/bin/sonar-scanner \
-                        -Dsonar.projectKey=flask-ci-cd \
-                        -Dsonar.projectName=flask-ci-cd \
-                        -Dsonar.projectVersion=1.0 \
-                        -Dsonar.sources=. \
-                        -Dsonar.language=py \
-                        -Dsonar.sourceEncoding=UTF-8'''
+                    sh '''
+                    sonar-scanner \
+                    -Dsonar.projectKey=flask-ci-cd \
+                    -Dsonar.projectName=flask-ci-cd \
+                    -Dsonar.projectVersion=1.0 \
+                    -Dsonar.sources=app \
+                    -Dsonar.language=py \
+                    -Dsonar.sourceEncoding=UTF-8
+                    '''
                 }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t flask-ci-cd .'
+                sh 'docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .'
             }
         }
 
         stage('Push Docker Image') {
             steps {
                 sh '''
-                    docker tag flask-ci-cd localhost:5000/flask-ci-cd
-                    docker push localhost:5000/flask-ci-cd
+                docker push ${IMAGE_NAME}:${IMAGE_TAG}
                 '''
             }
         }
 
-        stage('Deploy to K8s') {
+        stage('Deploy to Kubernetes') {
             steps {
                 sh '''
-                    kubectl apply -f k8s/deployment.yaml
-                    kubectl apply -f k8s/service.yaml
+                kubectl apply -f k8s/deployment.yaml
+                kubectl apply -f k8s/service.yaml
                 '''
             }
+        }
+    }
+
+    post {
+        always {
+            echo "Pipeline finished."
         }
     }
 }
